@@ -1,7 +1,10 @@
 {application, clamd,
  [
-  {description, ""},
-  {vsn, "1"},
+  {description, "Erlang clamd client"},
+  {vsn, "0.1"},
+  {modules, [
+    clamd_clamscan
+  ]},
   {registered, []},
   {applications, [
                   kernel,
