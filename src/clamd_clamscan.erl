@@ -6,13 +6,16 @@
 -export([start_link/0, init/1, handle_call/3, handle_cast/2, 
 handle_info/2, terminate/2, code_change/3]).
 
+%% public API
+-export([ping/0]).
+
 -record(state, {socket}).
 
 %%====================================================================
 %% api callbacks
 %%====================================================================
 start_link() ->
-    gen_server:start_link({local, ?MODULE}, ?MODULE, [{127,0,0,1}, 514], []).
+    gen_server:start_link({local, ?MODULE}, ?MODULE, ["localhost", 3310], []).
 
 %%====================================================================
 %% gen_server callbacks
@@ -26,8 +29,9 @@ start_link() ->
 %% Description: Initiates the server
 %%--------------------------------------------------------------------
 init([Host, Port]) ->
-    case gen_connect:open(Host, Port, [binary, {packet, 0}]) of
-        {ok, Socket} -> 
+    case gen_tcp:connect(Host, Port, [binary, {packet, raw}, {active, false}]) of
+        {ok, Socket} ->
+            % ping(),
             {ok, #state{
                 socket = Socket
             }};
@@ -43,9 +47,25 @@ init([Host, Port]) ->
 %%                                      {stop, Reason, State}
 %% Description: Handling call messages
 %%--------------------------------------------------------------------
-handle_call({scan, _Path}, _From, State) ->
+handle_call({ping}, _From, #state{socket=Socket} = State) ->
+    gen_tcp:send(Socket, "PING"),
+    case gen_tcp:recv(Socket, 4) of
+        {ok, <<"PONG">>} ->
+            {reply, ok, State};
+        {ok, Packet} ->
+            io:format("~p", [Packet]),
+            {reply, error, State};
+        {error, Reason} ->
+            io:format("error: ~w~n", [Reason]),
+            {reply, error, State}
+    end;
+handle_call({scan, _Path}, _From, #state{socket=Socket} = State) ->
+    gen_tcp:send(Socket, ""),
     {reply, ok, State};
-handle_call(_Msg, _From, State) ->
+handle_call({stream, _Path}, _From, State) ->
+    {reply, ok, State};
+handle_call(Msg, _From, State) ->
+    io:format("call : ~p~n", [Msg]),
     {reply, ok, State}.
 
 %%--------------------------------------------------------------------
@@ -54,9 +74,6 @@ handle_call(_Msg, _From, State) ->
 %%                                      {stop, Reason, State}
 %% Description: Handling cast messages
 %%--------------------------------------------------------------------
-%%handle_cast({send, Who, Level, Msg}, State) ->
-    %%    handle_cast({send, 0, Who, Level, Msg}, State);
-
 handle_cast(_Msg, State) ->
     {noreply, State}.
 
@@ -76,8 +93,8 @@ handle_info(_Info, State) ->
 %% cleaning up. When it returns, the gen_server terminates with Reason.
 %% The return value is ignored.
 %%--------------------------------------------------------------------
-terminate(_Reason, _State) ->
-    ok.
+terminate(_Reason, #state{socket=Socket}) ->
+    gen_tcp:close(Socket).
 
 %%--------------------------------------------------------------------
 %% Func: code_change(OldVsn, State, Extra) -> {ok, NewState}
@@ -89,3 +106,6 @@ code_change(_OldVsn, State, _Extra) ->
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
+
+ping() ->
+    gen_server:call(?MODULE, {ping}).
