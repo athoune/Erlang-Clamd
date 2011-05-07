@@ -1,4 +1,4 @@
--module(clamd_clamscan).
+-module(clamd).
 
 -behaviour(gen_server).
 
@@ -29,7 +29,7 @@ start_link() ->
 %% Description: Initiates the server
 %%--------------------------------------------------------------------
 init([Host, Port]) ->
-    case gen_tcp:connect(Host, Port, [binary, {packet, raw}, {active, false}]) of
+    case gen_tcp:connect(Host, Port, [list, {packet, raw}, {active, false}]) of
         {ok, Socket} ->
             % ping(),
             {ok, #state{
@@ -48,17 +48,9 @@ init([Host, Port]) ->
 %% Description: Handling call messages
 %%--------------------------------------------------------------------
 handle_call({ping}, _From, #state{socket=Socket} = State) ->
-    gen_tcp:send(Socket, "zPING" ++ 0),
-    case gen_tcp:recv(Socket, 5) of
-        {ok, <<"PONG">>} ->
-            {reply, ok, State};
-        {ok, Packet} ->
-            io:format("~p", [Packet]),
-            {reply, error, State};
-        {error, Reason} ->
-            io:format("error: ~w~n", [Reason]),
-            {reply, error, State}
-    end;
+    {ok, Response} = ask(Socket, "PING"),
+    io:format("~p~n", [Response]),
+    {reply, ok, State};
 handle_call({scan, _Path}, _From, #state{socket=Socket} = State) ->
     gen_tcp:send(Socket, ""),
     {reply, ok, State};
@@ -104,8 +96,34 @@ code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
 
 %%--------------------------------------------------------------------
-%%% Internal functions
+%%% API functions
 %%--------------------------------------------------------------------
+
 
 ping() ->
     gen_server:call(?MODULE, {ping}).
+    
+%%--------------------------------------------------------------------
+%%% Internal functions
+%%--------------------------------------------------------------------
+
+message(Action) ->
+    "z" ++ Action ++ [0].
+
+% Ask something to clamd and retuen response
+ask(Socket, Action) ->
+    gen_tcp:send(Socket, message(Action)),
+    response(Socket).
+
+response(Socket) ->
+    response(Socket, []).
+response(Socket, Acc) ->
+    case gen_tcp:recv(Socket, 1) of
+        {ok, Packet} ->
+            case Packet of
+                [0] -> {ok, Acc};
+                _ -> response(Socket, Acc ++ Packet)
+            end;
+        {error, Reason} -> {error, Reason}
+    end.
+        
