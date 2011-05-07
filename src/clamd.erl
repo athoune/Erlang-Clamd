@@ -48,8 +48,8 @@ init([Host, Port]) ->
 %% Description: Handling call messages
 %%--------------------------------------------------------------------
 handle_call({ping}, _From, #state{socket=Socket} = State) ->
-    gen_tcp:send(Socket, "PING"),
-    case gen_tcp:recv(Socket, 4) of
+    gen_tcp:send(Socket, "zPING" ++ 0),
+    case gen_tcp:recv(Socket, 5) of
         {ok, <<"PONG">>} ->
             {reply, ok, State};
         {ok, Packet} ->
