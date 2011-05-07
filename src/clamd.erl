@@ -7,9 +7,9 @@
 handle_info/2, terminate/2, code_change/3]).
 
 %% public API
--export([ping/0]).
+-export([ping/0, stats/0, version/0]).
 
--record(state, {socket}).
+-record(state, {socket, host, port}).
 
 %%====================================================================
 %% api callbacks
@@ -29,14 +29,12 @@ start_link() ->
 %% Description: Initiates the server
 %%--------------------------------------------------------------------
 init([Host, Port]) ->
-    case gen_tcp:connect(Host, Port, [list, {packet, raw}, {active, false}]) of
-        {ok, Socket} ->
-            % ping(),
-            {ok, #state{
-                socket = Socket
-            }};
-        {error, Reason} -> {stop, Reason}
-    end.
+    {ok, #state{
+            socket = nil,
+            host = Host,
+            port = Port
+        }
+    }.
 
 %%--------------------------------------------------------------------
 %% Function: %% handle_call(Request, From, State) -> {reply, Reply, State} |
@@ -47,10 +45,15 @@ init([Host, Port]) ->
 %%                                      {stop, Reason, State}
 %% Description: Handling call messages
 %%--------------------------------------------------------------------
-handle_call({ping}, _From, #state{socket=Socket} = State) ->
-    {ok, Response} = ask(Socket, "PING"),
-    io:format("~p~n", [Response]),
-    {reply, ok, State};
+handle_call({ping}, _From, State) ->
+    {ok, #state{socket=Socket} = New_State} = connect(State),
+    {reply, ask(Socket, "PING"), New_State};
+handle_call({stats}, _From, State) ->
+    {ok, #state{socket=Socket} = New_State} = connect(State),
+    {reply, ask(Socket, "STATS"), New_State};
+handle_call({version}, _From, State) ->
+    {ok, #state{socket=Socket} = New_State} = connect(State),
+    {reply, ask(Socket, "VERSION"), New_State};
 handle_call({scan, _Path}, _From, #state{socket=Socket} = State) ->
     gen_tcp:send(Socket, ""),
     {reply, ok, State};
@@ -102,10 +105,29 @@ code_change(_OldVsn, State, _Extra) ->
 
 ping() ->
     gen_server:call(?MODULE, {ping}).
-    
+
+stats() ->
+    gen_server:call(?MODULE, {stats}).
+
+version() ->
+    gen_server:call(?MODULE, {version}).
+
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
+
+connect(#state{host=Host, port=Port}) -> 
+    case gen_tcp:connect(Host, Port, [list, {packet, raw}, {active, false}]) of
+        {ok, Socket} ->
+            {ok, #state{
+                socket = Socket,
+                host = Host,
+                port = Port
+            }};
+        {error, Reason} -> {stop, Reason}
+    end.
+
+% https://wiki.clamav.net/Main/UpgradeNotes095
 
 message(Action) ->
     "z" ++ Action ++ [0].
