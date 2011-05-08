@@ -74,12 +74,14 @@ handle_call({stream, Bucket}, _From, #state{
     case Size of
         0 ->
             {ok, R} = response(FreshSocket),
+            NewNewStreamed = false,
             io:format("virus: ~s~n", [R]);
         _ ->
+            NewNewStreamed = NewStreamed,
             gen_tcp:send(FreshSocket, Bucket)
     end,
     {reply, ok, #state{
-            socket=FreshSocket, streamed=NewStreamed,
+            socket=FreshSocket, streamed=NewNewStreamed,
             host=Host, port=Port}};
 handle_call(Msg, _From, State) ->
     io:format("call : ~p~n", [Msg]),
