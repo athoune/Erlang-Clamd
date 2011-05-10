@@ -1,10 +1,10 @@
-#Clamd client for Erlang
+# Clamd client for Erlang
 
 Hunt virus with Erlang and [ClamAV](http://www.clamav.net/)
 
-##Test it
+## Test it
 
-###Install  clamav
+### Install  clamav
 
 On Linux
 
@@ -14,24 +14,38 @@ On OSX
 
 	brew install clamav
 
-###Configuration
+### Configuration
 
 Open the TCP socket in `clamd.conf`
 
 	TCPSocket 3310
 	TCPAddr 127.0.0.1
 
-###Example
+Launch it. You can test it with `clamdscan`
+
+On Linux
+
+	sudo /etc/init.d/clamd start
+
+On OSX
+
+	sudo /usr/local/sbin/clamd
+
+### Unit test
+
+	./rebar compile eunit
+
+### Example
 
 ```erlang
 application:start(clamd),
 {ok, _} = clamd:ping() %You can ping it
 clamd:stream("X5O!P%@AP[4\\PZX54(P^)7CC)7}"),
 clamd:stream("$EICAR-STANDARD-ANTIVIRUS-TEST-FILE!$H+H*"),
-clamd:stream("").
+clamd:stream(""). % You end a stream with an empty string
 ```
 
-##Features and todo
+## Features and todo
 
  * √ Talking to clamd
  * _ One session per stream
