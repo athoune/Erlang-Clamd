@@ -21,8 +21,8 @@
 start_link() ->
     supervisor:start_link({local, ?MODULE}, ?MODULE, []).
 
-start_child(Value, LeaseTime) ->
-    supervisor:start_child(?SERVER, [Value, LeaseTime]).
+% start_child(Value, LeaseTime) ->
+%     supervisor:start_child(?SERVER, [Value, LeaseTime]).
 
 %% ===================================================================
 %% Supervisor callbacks

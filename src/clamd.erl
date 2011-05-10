@@ -7,7 +7,7 @@
 handle_info/2, terminate/2, code_change/3]).
 
 %% public API
--export([ping/0, stats/0, version/0, scan/1, stream/1, open_stream/0]).
+-export([ping/0, stats/0, version/0, scan/1, stream/1, open_stream/0, message/1, response/1]).
 
 -record(state, {socket, host, port, streamed}).
 
@@ -57,7 +57,7 @@ handle_call({version}, _From, State) ->
     {reply, ask(Socket, "VERSION"), New_State};
 handle_call({open_stream}, _From, #state{
             host=Host, port=Port} = State) ->
-    Pid = spawn(clamd_stream, init, [Host, Port]),
+    Pid = clamd_stream:start_link(Host, Port),
     {reply, Pid, State};
 % handle_call({scan, _Path}, _From, #state{socket=Socket} = State) ->
 %     {reply, ok, State};
