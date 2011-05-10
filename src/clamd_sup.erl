@@ -12,12 +12,17 @@
 %% Helper macro for declaring children of supervisor
 -define(CHILD(I, Type), {I, {I, start_link, []}, permanent, 5000, Type, [I]}).
 
+-define(SERVER, ?MODULE).
+
 %% ===================================================================
 %% API functions
 %% ===================================================================
 
 start_link() ->
     supervisor:start_link({local, ?MODULE}, ?MODULE, []).
+
+start_child(Value, LeaseTime) ->
+    supervisor:start_child(?SERVER, [Value, LeaseTime]).
 
 %% ===================================================================
 %% Supervisor callbacks

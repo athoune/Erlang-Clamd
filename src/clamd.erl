@@ -7,7 +7,7 @@
 handle_info/2, terminate/2, code_change/3]).
 
 %% public API
--export([ping/0, stats/0, version/0, scan/1, stream/1]).
+-export([ping/0, stats/0, version/0, scan/1, stream/1, open_stream/0]).
 
 -record(state, {socket, host, port, streamed}).
 
@@ -55,6 +55,10 @@ handle_call({stats}, _From, State) ->
 handle_call({version}, _From, State) ->
     {ok, #state{socket=Socket} = New_State} = connect(State),
     {reply, ask(Socket, "VERSION"), New_State};
+handle_call({open_stream}, _From, #state{
+            host=Host, port=Port} = State) ->
+    Pid = spawn(clamd_stream, init, [Host, Port]),
+    {reply, Pid, State};
 % handle_call({scan, _Path}, _From, #state{socket=Socket} = State) ->
 %     {reply, ok, State};
 handle_call({stream, Bucket}, _From, #state{
@@ -142,6 +146,8 @@ scan(Path) ->
 % lazy, le premier bucket amorce le INSTREAM, un bucket de 0 clos
 stream(Bucket) ->
     gen_server:call(?MODULE, {stream, Bucket}).
+open_stream() ->
+    gen_server:call(?MODULE, {open_stream}).
     
 %%--------------------------------------------------------------------
 %%% Internal functions
