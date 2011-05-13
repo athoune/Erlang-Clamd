@@ -3,7 +3,7 @@
 -behaviour(gen_server).
 
 %% gen_server callbacks
--export([start_link/2, init/1, handle_call/3, handle_cast/2, 
+-export([start/2, init/1, handle_call/3, handle_cast/2, 
 handle_info/2, terminate/2, code_change/3]).
 
 %% API
@@ -13,8 +13,11 @@ handle_info/2, terminate/2, code_change/3]).
 
 -record(state, {socket, host, port}).
 
-start_link(Host, Port) ->
-    gen_server:start_link( ?MODULE, [Host, Port], []).
+% start_link(Host, Port) ->
+%     gen_server:start_link( ?MODULE, [Host, Port], []).
+start(Host, Port) ->
+    gen_server:start( ?MODULE, [Host, Port], []).
+
 
 %%====================================================================
 %% gen_server callbacks

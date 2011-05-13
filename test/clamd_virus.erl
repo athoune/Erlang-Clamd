@@ -9,10 +9,8 @@ ping_test() ->
     {ok, _} = clamd:ping().
 stream_test() ->
     % application:start(clamd),
-    clamd:stream("X5O!P%@AP[4\\PZX54(P^)7CC)7}"),
-    clamd:stream("$EICAR-STANDARD-ANTIVIRUS-TEST-FILE!$H+H*"),
-    clamd:stream("").
-eicar_test() ->
-    clamd:stream("EICAR"),
-    clamd:stream("").
+    {ok, Pid} = clamd:open_stream(),
+    clamd_stream:chunk(Pid, "X5O!P%@AP[4\\PZX54(P^)7CC)7}"),
+    clamd_stream:chunk(Pid, "$EICAR-STANDARD-ANTIVIRUS-TEST-FILE!$H+H*"),
+    clamd_stream:finish(Pid).
     

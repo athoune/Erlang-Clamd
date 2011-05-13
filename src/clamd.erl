@@ -12,7 +12,6 @@ handle_info/2, terminate/2, code_change/3]).
     stats/0,
     version/0,
     scan/1,
-    stream/1,
     open_stream/0,
     message/1,
     response/1]).
@@ -40,8 +39,7 @@ init([Host, Port]) ->
     {ok, #state{
             socket = nil,
             host = Host,
-            port = Port,
-            streamed = false
+            port = Port
         }
     }.
 
@@ -65,36 +63,10 @@ handle_call({version}, _From, State) ->
     {reply, ask(Socket, "VERSION"), New_State};
 handle_call({open_stream}, _From, #state{
             host=Host, port=Port} = State) ->
-    Pid = clamd_stream:start_link(Host, Port),
-    {reply, Pid, State};
+    R = clamd_stream:start(Host, Port),
+    {reply, R, State};
 % handle_call({scan, _Path}, _From, #state{socket=Socket} = State) ->
 %     {reply, ok, State};
-handle_call({stream, Bucket}, _From, #state{
-        socket=Socket, streamed=Streamed,
-        host=Host, port=Port} = State) ->
-    case Streamed of
-        true ->
-            NewStreamed = Streamed,
-            FreshSocket = Socket;
-        _ ->
-            {ok, #state{socket=FreshSocket}} = connect(State),
-            NewStreamed = true,
-            gen_tcp:send(FreshSocket, message("INSTREAM"))
-    end,
-    Size = length(Bucket),
-    gen_tcp:send(FreshSocket, <<Size:32/big>>),
-    case Size of
-        0 ->
-            {ok, R} = response(FreshSocket),
-            NewNewStreamed = false,
-            io:format("virus: ~s~n", [R]);
-        _ ->
-            NewNewStreamed = NewStreamed,
-            gen_tcp:send(FreshSocket, Bucket)
-    end,
-    {reply, ok, #state{
-            socket=FreshSocket, streamed=NewNewStreamed,
-            host=Host, port=Port}};
 handle_call(Msg, _From, State) ->
     io:format("call : ~p~n", [Msg]),
     {reply, ok, State}.
@@ -151,9 +123,6 @@ version() ->
 scan(Path) ->
     gen_server:call(?MODULE, {scan, Path}).
 
-% lazy, le premier bucket amorce le INSTREAM, un bucket de 0 clos
-stream(Bucket) ->
-    gen_server:call(?MODULE, {stream, Bucket}).
 open_stream() ->
     gen_server:call(?MODULE, {open_stream}).
     
