@@ -7,7 +7,15 @@
 handle_info/2, terminate/2, code_change/3]).
 
 %% public API
--export([ping/0, stats/0, version/0, scan/1, stream/1, open_stream/0, message/1, response/1]).
+-export([
+    ping/0,
+    stats/0,
+    version/0,
+    scan/1,
+    stream/1,
+    open_stream/0,
+    message/1,
+    response/1]).
 
 -record(state, {socket, host, port, streamed}).
 
