@@ -57,6 +57,7 @@ handle_call({finish}, _From, #state{socket=Socket} = State) ->
         {ok,"stream: " ++ Name} -> {ok, virus, Name};
         {error, Reason} -> {error, Reason}
     end,
+    %gen_server:call(clamd, {finished}),
     {reply, R, State};
 handle_call(Msg, _From, State) ->
     io:format("call : ~p~n", [Msg]),
@@ -103,4 +104,6 @@ chunk(Pid, Chunk) ->
     gen_server:call(Pid, {chunk, Chunk}).
 
 finish(Pid) ->
-    gen_server:call(Pid, {finish}).
+    R = gen_server:call(Pid, {finish}),
+    Pid ! 'EXIT',
+    R.

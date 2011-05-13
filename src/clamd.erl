@@ -16,13 +16,13 @@ handle_info/2, terminate/2, code_change/3]).
     message/1,
     response/1]).
 
--record(state, {socket, host, port, streamed}).
+-record(state, {socket, host, port, maxThread, usedThread}).
 
 %%====================================================================
 %% api callbacks
 %%====================================================================
 start_link() ->
-    gen_server:start_link({local, ?MODULE}, ?MODULE, ["localhost", 3310], []).
+    gen_server:start_link({local, ?MODULE}, ?MODULE, ["localhost", 3310, 8], []).
 
 %%====================================================================
 %% gen_server callbacks
@@ -35,11 +35,13 @@ start_link() ->
 %%                         {stop, Reason}
 %% Description: Initiates the server
 %%--------------------------------------------------------------------
-init([Host, Port]) ->
+init([Host, Port, MaxThread]) ->
     {ok, #state{
             socket = nil,
             host = Host,
-            port = Port
+            port = Port,
+            maxThread = MaxThread,
+            usedThread = 0
         }
     }.
 
@@ -61,10 +63,16 @@ handle_call({stats}, _From, State) ->
 handle_call({version}, _From, State) ->
     {ok, #state{socket=Socket} = New_State} = connect(State),
     {reply, ask(Socket, "VERSION"), New_State};
-handle_call({open_stream}, _From, #state{
-            host=Host, port=Port} = State) ->
+handle_call({open_stream}, _From, #state{host= Host, port=Port} = State) ->
     R = clamd_stream:start(Host, Port),
     {reply, R, State};
+% handle_call({finished}, _From, #state{
+%         socket = Socket,
+%         host=Host, port=Port,
+%         maxThread = MaxThread, usedThread = UsedThread}) ->
+%     {reply, ok, #state{socket = Socket,
+%         host=Host, port=Port,
+%         maxThread = MaxThread, usedThread = UsedThread - 1}};
 % handle_call({scan, _Path}, _From, #state{socket=Socket} = State) ->
 %     {reply, ok, State};
 handle_call(Msg, _From, State) ->
