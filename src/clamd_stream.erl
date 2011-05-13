@@ -8,13 +8,13 @@ handle_info/2, terminate/2, code_change/3]).
 
 %% API
 -export([
-    chunk/1,
-    finish/0]).
+    chunk/2,
+    finish/1]).
 
 -record(state, {socket, host, port}).
 
 start_link(Host, Port) ->
-    gen_server:start_link({local, ?MODULE}, ?MODULE, [Host, Port], []).
+    gen_server:start_link( ?MODULE, [Host, Port], []).
 
 %%====================================================================
 %% gen_server callbacks
@@ -30,9 +30,7 @@ start_link(Host, Port) ->
 
 init([Host, Port]) ->
     {ok, Socket} = gen_tcp:connect(Host, Port, [list, {packet, raw}, {active, false}]),
-    io:format("Socket : ~w~n", [Socket]),
     gen_tcp:send(Socket, clamd:message("INSTREAM")),
-    io:format("INSTREAM~n"),
     {ok, #state{socket=Socket, host=Host, port=Port}}.
 
 %%--------------------------------------------------------------------
@@ -51,8 +49,12 @@ handle_call({chunk, Bucket}, _From, #state{socket=Socket} = State) ->
     {reply, ok, State};
 handle_call({finish}, _From, #state{socket=Socket} = State) ->
     gen_tcp:send(Socket,[0,0,0,0]),
-    {ok, R} = clamd:response(Socket),
-    {reply, {ok, R}, State};
+    R = case clamd:response(Socket) of
+        {ok, "OK"} -> {ok, no_virus};
+        {ok,"stream: " ++ Name} -> {ok, virus, Name};
+        {error, Reason} -> {error, Reason}
+    end,
+    {reply, R, State};
 handle_call(Msg, _From, State) ->
     io:format("call : ~p~n", [Msg]),
     {reply, ok, State}.
@@ -94,8 +96,8 @@ code_change(_OldVsn, State, _Extra) ->
 
 %% API
 
-chunk(Chunk) ->
-    gen_server:call(?MODULE, {chunk, Chunk}).
+chunk(Pid, Chunk) ->
+    gen_server:call(Pid, {chunk, Chunk}).
 
-finish() ->
-    gen_server:call(?MODULE, {finish}).
+finish(Pid) ->
+    gen_server:call(Pid, {finish}).
