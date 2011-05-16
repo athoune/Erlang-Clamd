@@ -63,18 +63,16 @@ handle_call({stats}, _From, State) ->
 handle_call({version}, _From, State) ->
     {ok, #state{socket=Socket} = New_State} = connect(State),
     {reply, ask(Socket, "VERSION"), New_State};
-handle_call({open_stream}, _From, #state{host= Host, port=Port} = State) ->
-    R = clamd_stream:start(Host, Port),
-    {reply, R, State};
-% handle_call({finished}, _From, #state{
-%         socket = Socket,
-%         host=Host, port=Port,
-%         maxThread = MaxThread, usedThread = UsedThread}) ->
-%     {reply, ok, #state{socket = Socket,
-%         host=Host, port=Port,
-%         maxThread = MaxThread, usedThread = UsedThread - 1}};
+handle_call({open_stream}, _From, #state{
+        host= Host, port=Port,
+        usedThread=UsedThread} = State) ->
+    R = clamd_stream:start(Host, Port, self()),
+    NewState = State#state{usedThread=UsedThread+1},
+    {reply, R, NewState};
 % handle_call({scan, _Path}, _From, #state{socket=Socket} = State) ->
 %     {reply, ok, State};
+handle_call({finished}, _From, #state{usedThread = UsedThread} = State) ->
+    {reply, ok, State#state{usedThread = UsedThread-1}};
 handle_call(Msg, _From, State) ->
     io:format("call : ~p~n", [Msg]),
     {reply, ok, State}.
@@ -133,15 +131,15 @@ scan(Path) ->
 
 open_stream() ->
     gen_server:call(?MODULE, {open_stream}).
-    
+
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
 
-connect(#state{host=Host, port=Port}) -> 
+connect(#state{host=Host, port=Port} = State) -> 
     case gen_tcp:connect(Host, Port, [list, {packet, raw}, {active, false}]) of
         {ok, Socket} ->
-            {ok, #state{
+            {ok, State#state{
                 socket = Socket,
                 host = Host,
                 port = Port

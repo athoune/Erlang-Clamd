@@ -3,7 +3,7 @@
 -behaviour(gen_server).
 
 %% gen_server callbacks
--export([start/2, init/1, handle_call/3, handle_cast/2, 
+-export([start/3, init/1, handle_call/3, handle_cast/2, 
 handle_info/2, terminate/2, code_change/3]).
 
 %% API
@@ -11,12 +11,12 @@ handle_info/2, terminate/2, code_change/3]).
     chunk/2,
     finish/1]).
 
--record(state, {socket, host, port}).
+-record(state, {socket, host, port, parent}).
 
 % start_link(Host, Port) ->
 %     gen_server:start_link( ?MODULE, [Host, Port], []).
-start(Host, Port) ->
-    gen_server:start( ?MODULE, [Host, Port], []).
+start(Host, Port, Parent) ->
+    gen_server:start( ?MODULE, [Host, Port, Parent], []).
 
 
 %%====================================================================
@@ -31,10 +31,10 @@ start(Host, Port) ->
 %% Description: Initiates the server
 %%--------------------------------------------------------------------
 
-init([Host, Port]) ->
+init([Host, Port, Parent]) ->
     {ok, Socket} = gen_tcp:connect(Host, Port, [list, {packet, raw}, {active, false}]),
     gen_tcp:send(Socket, clamd:message("INSTREAM")),
-    {ok, #state{socket=Socket, host=Host, port=Port}}.
+    {ok, #state{socket=Socket, host=Host, port=Port, parent=Parent}}.
 
 %%--------------------------------------------------------------------
 %% Function: %% handle_call(Request, From, State) -> {reply, Reply, State} |
@@ -50,14 +50,19 @@ handle_call({chunk, Bucket}, _From, #state{socket=Socket} = State) ->
     gen_tcp:send(Socket, <<Size:32/big>>),
     gen_tcp:send(Socket, Bucket),
     {reply, ok, State};
-handle_call({finish}, _From, #state{socket=Socket} = State) ->
+handle_call({finish}, _From, #state{socket=Socket, parent=Parent} = State) ->
     gen_tcp:send(Socket,[0,0,0,0]),
     R = case clamd:response(Socket) of
         {ok, "OK"} -> {ok, no_virus};
         {ok,"stream: " ++ Name} -> {ok, virus, Name};
         {error, Reason} -> {error, Reason}
     end,
-    %gen_server:call(clamd, {finished}),
+    if
+        is_pid(Parent) ->
+            gen_server:call(Parent, {finished});
+        true ->
+            nil
+    end,
     {reply, R, State};
 handle_call(Msg, _From, State) ->
     io:format("call : ~p~n", [Msg]),
