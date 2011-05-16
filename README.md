@@ -40,9 +40,10 @@ On OSX
 ```erlang
 application:start(clamd),
 {ok, _} = clamd:ping() %You can ping it
-clamd:stream("X5O!P%@AP[4\\PZX54(P^)7CC)7}"),
-clamd:stream("$EICAR-STANDARD-ANTIVIRUS-TEST-FILE!$H+H*"),
-clamd:stream(""). % You end a stream with an empty string
+{ok, Pid} = clamd:open_stream(), %Open a worker
+clamd_stream:chunk(Pid, "X5O!P%@AP[4\\PZX54(P^)7CC)7}"),
+clamd_stream:chunk(Pid, "$EICAR-STANDARD-ANTIVIRUS-TEST-FILE!$H+H*"),
+{ok, virus, Message} = clamd_stream:finish(Pid).
 ```
 
 ## Features and todo
