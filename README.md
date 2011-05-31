@@ -41,9 +41,9 @@ On OSX
 application:start(clamd),
 {ok, _} = clamd:ping() %You can ping it
 {ok, Pid} = clamd:open_stream(), %Open a worker
-clamd_stream:chunk(Pid, "X5O!P%@AP[4\\PZX54(P^)7CC)7}"),
-clamd_stream:chunk(Pid, "$EICAR-STANDARD-ANTIVIRUS-TEST-FILE!$H+H*"),
-{ok, virus, Message} = clamd_stream:finish(Pid).
+clamd:chunk_stream(Pid, "X5O!P%@AP[4\\PZX54(P^)7CC)7}"),
+clamd:chunk_stream(Pid, "$EICAR-STANDARD-ANTIVIRUS-TEST-FILE!$H+H*"),
+{ok, virus, Message} = clamd:close_stream(Pid).
 ```
 
 ## Features and todo

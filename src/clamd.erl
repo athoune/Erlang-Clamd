@@ -13,6 +13,8 @@ handle_info/2, terminate/2, code_change/3]).
     version/0,
     scan/1,
     open_stream/0,
+    chunk_stream/2,
+    close_stream/1,
     message/1,
     response/1]).
 
@@ -131,6 +133,14 @@ scan(Path) ->
 
 open_stream() ->
     gen_server:call(?MODULE, {open_stream}).
+
+chunk_stream(Pid, Chunk) ->
+    gen_server:call(Pid, {chunk, Chunk}).
+
+close_stream(Pid) ->
+    R = gen_server:call(Pid, {finish}),
+    Pid ! 'EXIT',
+    R.
 
 %%--------------------------------------------------------------------
 %%% Internal functions

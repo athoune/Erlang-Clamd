@@ -1,7 +1,7 @@
 {application, clamd,
  [
   {description, "Erlang clamd client"},
-  {vsn, "0.1"},
+  {vsn, "0.2"},
   {modules, [
     clamd,
     clamd_stream

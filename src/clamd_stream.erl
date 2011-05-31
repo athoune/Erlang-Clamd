@@ -6,11 +6,6 @@
 -export([start/3, init/1, handle_call/3, handle_cast/2, 
 handle_info/2, terminate/2, code_change/3]).
 
-%% API
--export([
-    chunk/2,
-    finish/1]).
-
 -record(state, {socket, host, port, parent}).
 
 % start_link(Host, Port) ->
@@ -102,13 +97,3 @@ terminate(_Reason, #state{socket=Socket}) ->
 %%--------------------------------------------------------------------
 code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
-
-%% API
-
-chunk(Pid, Chunk) ->
-    gen_server:call(Pid, {chunk, Chunk}).
-
-finish(Pid) ->
-    R = gen_server:call(Pid, {finish}),
-    Pid ! 'EXIT',
-    R.
