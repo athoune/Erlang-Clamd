@@ -51,3 +51,8 @@ clamd:chunk_stream(Pid, "$EICAR-STANDARD-ANTIVIRUS-TEST-FILE!$H+H*"),
  * √ Talking to clamd
  * _ One session per stream
  * _ Connection pool
+
+
+# Licence
+
+MIT. © 2011, Mathieu Lecarme.
