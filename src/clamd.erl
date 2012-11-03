@@ -17,11 +17,8 @@ handle_info/2, terminate/2, code_change/3]).
     stats/0,
     version/0,
     scan/1,
-    open_stream/0,
-    chunk_stream/2,
-    close_stream/1,
-    message/1,
-    response/1]).
+    stream/1
+    ]).
 
 -record(state, {socket, host, port}).
 
@@ -44,7 +41,7 @@ start_link(Args) ->
 %%                         ignore               |
 %%                         {stop, Reason}
 %% Description: Initiates the server
-%%--------------------------------------------------------------------
+%.s %--------------------------------------------------------------------
 init([Host, Port]) ->
     {ok, #state{
             socket = nil,
@@ -64,21 +61,23 @@ init([Host, Port]) ->
 %%--------------------------------------------------------------------
 handle_call({ping}, _From, State) ->
     {ok, #state{socket=Socket} = New_State} = connect(State),
-    {reply, ask(Socket, "PING"), New_State};
+    {reply, clamd_protocol:ask(Socket, "PING"), New_State};
 handle_call({stats}, _From, State) ->
     {ok, #state{socket=Socket} = New_State} = connect(State),
-    {reply, ask(Socket, "STATS"), New_State};
+    {reply, clamd_protocol:ask(Socket, "STATS"), New_State};
 handle_call({version}, _From, State) ->
     {ok, #state{socket=Socket} = New_State} = connect(State),
-    {reply, ask(Socket, "VERSION"), New_State};
-handle_call({open_stream}, _From, #state{
-        host= Host, port=Port} = State) ->
-    R = clamd_stream:start(Host, Port, self()),
-    {reply, R, State};
-% handle_call({scan, _Path}, _From, #state{socket=Socket} = State) ->
-%     {reply, ok, State};
-handle_call({finished}, _From, State) ->
+    {reply, clamd_protocol:ask(Socket, "VERSION"), New_State};
+handle_call({start_stream}, _From, State) ->
+    {ok, #state{socket=Socket} = New_State} = connect(State),
+    ok = clamd_protocol:start_stream(Socket),
+    {reply, ok, New_State};
+handle_call({chunk_stream, Chunk}, _From, #state{socket=Socket}=State) ->
+    clamd_protocol:chunk_stream(Socket, Chunk),
     {reply, ok, State};
+handle_call({end_stream}, _From, #state{socket=Socket}=State) ->
+    R = clamd_protocol:end_stream(Socket),
+    {reply, R, State};
 handle_call(Msg, _From, State) ->
     io:format("call : ~p~n", [Msg]),
     {reply, ok, State}.
@@ -125,29 +124,32 @@ code_change(_OldVsn, State, _Extra) ->
 
 ping() ->
     poolboy:transaction(clamd_pool, fun(Worker) ->
-                io:format("ping transaction ~p~n", [Worker]),
                 gen_server:call(Worker, {ping})
         end).
 
 stats() ->
-    gen_server:call(?MODULE, {stats}).
+    poolboy:transaction(clamd_pool, fun(Worker) ->
+                gen_server:call(Worker, {stats})
+        end).
 
 version() ->
-    gen_server:call(?MODULE, {version}).
+    poolboy:transaction(clamd_pool, fun(Worker) ->
+                gen_server:call(Worker, {version})
+        end).
 
 scan(Path) ->
-    gen_server:call(?MODULE, {scan, Path}).
+    poolboy:transaction(clamd_pool, fun(Worker) ->
+                gen_server:call(Worker, {scan, Path})
+        end).
 
-open_stream() ->
-    gen_server:call(?MODULE, {open_stream}).
-
-chunk_stream(Pid, Chunk) ->
-    gen_server:call(Pid, {chunk, Chunk}).
-
-close_stream(Pid) ->
-    R = gen_server:call(Pid, {finish}),
-    Pid ! 'EXIT',
-    R.
+stream(Chunks) when is_list(Chunks) ->
+    poolboy:transaction(clamd_pool, fun(Worker) ->
+                ok = gen_server:call(Worker, {start_stream}),
+                lists:foreach(fun(T) ->
+                            ok = gen_server:call(Worker, {chunk_stream, T})
+                    end, Chunks),
+                gen_server:call(Worker, {end_stream})
+        end).
 
 %%--------------------------------------------------------------------
 %%% Internal functions
@@ -163,26 +165,3 @@ connect(#state{host=Host, port=Port} = State) ->
             }};
         {error, Reason} -> {stop, Reason}
     end.
-
-% https://wiki.clamav.net/Main/UpgradeNotes095
-
-message(Action) ->
-    "z" ++ Action ++ [0].
-
-% Ask something to clamd and retuen response
-ask(Socket, Action) ->
-    gen_tcp:send(Socket, message(Action)),
-    response(Socket).
-
-response(Socket) ->
-    response(Socket, []).
-response(Socket, Acc) ->
-    case gen_tcp:recv(Socket, 1) of
-        {ok, Packet} ->
-            case Packet of
-                [0] -> {ok, Acc};
-                _ -> response(Socket, Acc ++ Packet)
-            end;
-        {error, Reason} -> {error, Reason}
-    end.
-
