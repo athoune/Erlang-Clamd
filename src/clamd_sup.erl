@@ -9,9 +9,6 @@
 %% Supervisor callbacks
 -export([init/1]).
 
-%% Helper macro for declaring children of supervisor
--define(CHILD(I, Type), {I, {I, start_link, []}, permanent, 5000, Type, [I]}).
-
 -define(SERVER, ?MODULE).
 
 %% ===================================================================
@@ -29,5 +26,11 @@ start_link() ->
 %% ===================================================================
 
 init([]) ->
-    {ok, { {one_for_one, 5, 10}, [?CHILD(clamd, worker)]} }.
+    {ok, { {one_for_one, 10, 10}, [
+                poolboy:child_spec(clamd_pool, [
+                        {name, {local, clamd_pool}},
+                        {worker_module, clamd},
+                        {size, 4},
+                        {max_overflow, 32}], ["localhost", 3310])
+            ]} }.
 

@@ -1,10 +1,15 @@
 -module(clamd).
 
 -behaviour(gen_server).
+-behaviour(poolboy_worker).
+
 
 %% gen_server callbacks
--export([start_link/0, init/1, handle_call/3, handle_cast/2, 
+-export([start_link/0, init/1, handle_call/3, handle_cast/2,
 handle_info/2, terminate/2, code_change/3]).
+
+%% poolboy callback
+-export([start_link/1]).
 
 %% public API
 -export([
@@ -18,13 +23,16 @@ handle_info/2, terminate/2, code_change/3]).
     message/1,
     response/1]).
 
--record(state, {socket, host, port, maxThread, usedThread}).
+-record(state, {socket, host, port}).
 
 %%====================================================================
 %% api callbacks
 %%====================================================================
 start_link() ->
-    gen_server:start_link({local, ?MODULE}, ?MODULE, ["localhost", 3310, 8], []).
+    gen_server:start_link({local, ?MODULE}, ?MODULE, ["localhost", 3310], []).
+
+start_link(Args) ->
+    gen_server:start_link(?MODULE, Args, []).
 
 %%====================================================================
 %% gen_server callbacks
@@ -37,13 +45,11 @@ start_link() ->
 %%                         {stop, Reason}
 %% Description: Initiates the server
 %%--------------------------------------------------------------------
-init([Host, Port, MaxThread]) ->
+init([Host, Port]) ->
     {ok, #state{
             socket = nil,
             host = Host,
-            port = Port,
-            maxThread = MaxThread,
-            usedThread = 0
+            port = Port
         }
     }.
 
@@ -66,15 +72,13 @@ handle_call({version}, _From, State) ->
     {ok, #state{socket=Socket} = New_State} = connect(State),
     {reply, ask(Socket, "VERSION"), New_State};
 handle_call({open_stream}, _From, #state{
-        host= Host, port=Port,
-        usedThread=UsedThread} = State) ->
+        host= Host, port=Port} = State) ->
     R = clamd_stream:start(Host, Port, self()),
-    NewState = State#state{usedThread=UsedThread+1},
-    {reply, R, NewState};
+    {reply, R, State};
 % handle_call({scan, _Path}, _From, #state{socket=Socket} = State) ->
 %     {reply, ok, State};
-handle_call({finished}, _From, #state{usedThread = UsedThread} = State) ->
-    {reply, ok, State#state{usedThread = UsedThread-1}};
+handle_call({finished}, _From, State) ->
+    {reply, ok, State};
 handle_call(Msg, _From, State) ->
     io:format("call : ~p~n", [Msg]),
     {reply, ok, State}.
@@ -120,7 +124,10 @@ code_change(_OldVsn, State, _Extra) ->
 
 
 ping() ->
-    gen_server:call(?MODULE, {ping}).
+    poolboy:transaction(clamd_pool, fun(Worker) ->
+                io:format("ping transaction ~p~n", [Worker]),
+                gen_server:call(Worker, {ping})
+        end).
 
 stats() ->
     gen_server:call(?MODULE, {stats}).
@@ -146,7 +153,7 @@ close_stream(Pid) ->
 %%% Internal functions
 %%--------------------------------------------------------------------
 
-connect(#state{host=Host, port=Port} = State) -> 
+connect(#state{host=Host, port=Port} = State) ->
     case gen_tcp:connect(Host, Port, [list, {packet, raw}, {active, false}]) of
         {ok, Socket} ->
             {ok, State#state{
@@ -178,4 +185,4 @@ response(Socket, Acc) ->
             end;
         {error, Reason} -> {error, Reason}
     end.
-        
+
