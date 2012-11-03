@@ -17,7 +17,8 @@ handle_info/2, terminate/2, code_change/3]).
     stats/0,
     version/0,
     scan/1,
-    stream/1
+    stream/1,
+    file_wrapper/1
     ]).
 
 -record(state, {socket, host, port}).
@@ -149,7 +150,39 @@ stream(Chunks) when is_list(Chunks) ->
                             ok = gen_server:call(Worker, {chunk_stream, T})
                     end, Chunks),
                 gen_server:call(Worker, {end_stream})
+        end);
+stream({Reader, State}) ->
+    poolboy:transaction(clamd_pool, fun(Worker) ->
+                ok = gen_server:call(Worker, {start_stream}),
+                read_chunk(Worker, Reader, State),
+                gen_server:call(Worker, {end_stream})
         end).
+
+read_chunk(Worker, Reader, State) ->
+    case Reader(State) of
+        eof -> ok;
+        {ok, Chunk, NewState} ->
+            ok = gen_server:call(Worker, {chunk_stream, Chunk}),
+            read_chunk(Worker, Reader, NewState)
+    end.
+
+file_wrapper(Path) ->
+    F = fun(State) ->
+            case State of
+                {open, Path} ->
+                    {ok, Fd} = file:open(Path, [read]),
+                    {ok, Chunk} = file:read(Fd, 128),
+                    {ok, Chunk, {reading, Fd}};
+                {reading, Fd} ->
+                    R = file:read(Fd, 128),
+                    case R of
+                        eof -> eof;
+                        {ok, Chunk} ->
+                            {ok, Chunk, {reading, Fd}}
+                    end
+            end
+    end,
+    {F, {open, Path}}.
 
 %%--------------------------------------------------------------------
 %%% Internal functions
