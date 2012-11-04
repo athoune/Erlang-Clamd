@@ -33,24 +33,29 @@ On OSX
 
 ### Unit test
 
-	./rebar compile eunit
+	./rebar eunit skip_deps=true
 
 ### Example
 
 ```erlang
 application:start(clamd),
 {ok, _} = clamd:ping() %You can ping it
-{ok, Pid} = clamd:open_stream(), %Open a worker
-clamd:chunk_stream(Pid, "X5O!P%@AP[4\\PZX54(P^)7CC)7}"),
-clamd:chunk_stream(Pid, "$EICAR-STANDARD-ANTIVIRUS-TEST-FILE!$H+H*"),
-{ok, virus, Message} = clamd:close_stream(Pid).
+{ok, virus, Name} clamd:stream([
+    "X5O!P%@AP[4\\PZX54(P^)7CC)7}",
+    "$EICAR-STANDARD-ANTIVIRUS-TEST-FILE!$H+H*"]).
 ```
+
+Clamd can be easily flooded, no more worker than CPU, so poolboy is used,
+and each stream is handled inside a transaction.
+You can stream a list, if you trust in your RAM, or using an iterator,
+a tuple of a function and a state, like clamd:file_wrapper response.
+
 
 ## Features and todo
 
  * √ Talking to clamd
+ * √ Connection pool
  * _ One session per stream
- * _ Connection pool
 
 
 # Licence
