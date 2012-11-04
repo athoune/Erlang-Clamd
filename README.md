@@ -56,6 +56,7 @@ and each stream is handled inside a transaction.
  * √ Talking to clamd
  * √ Connection pool
  * _ One session per stream
+ * _ Some parameters
 
 
 # Licence
