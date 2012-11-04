@@ -16,7 +16,7 @@ end_stream(Socket) ->
     gen_tcp:send(Socket,[0,0,0,0]),
     R = case response(Socket) of
         {ok, "OK"} -> {ok, no_virus};
-        {ok,"stream: " ++ Name} -> {ok, virus, Name};
+        {ok,"stream: " ++ Name} -> {ok, virus, lists:sublist(Name, length(Name) - 6)};
         {error, Reason} -> {error, Reason}
     end,
     R.

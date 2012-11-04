@@ -18,7 +18,11 @@ handle_info/2, terminate/2, code_change/3]).
     version/0,
     scan/1,
     stream/1,
-    file_wrapper/1
+    file_wrapper/1,
+    start_stream/1,
+    chunk_stream/2,
+    end_stream/1,
+    transaction/1
     ]).
 
 -record(state, {socket, host, port}).
@@ -145,6 +149,20 @@ scan(Path) ->
     poolboy:transaction(clamd_pool, fun(Worker) ->
                 gen_server:call(Worker, {scan, Path})
         end).
+
+start_stream(Worker) ->
+    gen_server:call(Worker, {start_stream}).
+
+end_stream(Worker) ->
+    gen_server:call(Worker, {end_stream}).
+
+chunk_stream(Worker, Chunk) ->
+    gen_server:call(Worker, {chunk_stream, Chunk}).
+
+transaction(Fun) ->
+    Worker = poolboy:checkout(clamd_pool),
+    Fun(Worker),
+    poolboy:checkin(clamd_pool, Worker).
 
 stream(Chunks) when is_list(Chunks) ->
     poolboy:transaction(clamd_pool, fun(Worker) ->
