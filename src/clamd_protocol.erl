@@ -1,6 +1,6 @@
 -module(clamd_protocol).
 
--export([start_stream/1, chunk_stream/2, end_stream/1, message/1, ask/2]).
+-export([start_stream/1, chunk_stream/2, end_stream/1, message/1, ask/2, scan/2]).
 
 
 start_stream(Socket) ->
@@ -21,7 +21,19 @@ end_stream(Socket) ->
     end,
     R.
 
-% https://wiki.clamav.net/Main/UpgradeNotes095
+scan(Socket, Path) ->
+    case ask(Socket, "SCAN " ++ Path) of
+        {ok, Blob} ->
+            T = string:tokens(Blob, " "),
+            case lists:nth(length(T), T) of
+                "OK" -> {ok, no_virus};
+                "FOUND" -> {ok, virus, lists:nth(length(T) -1, T), lists:nth(1, T)};
+                _ -> {error, Blob}
+        end;
+        {error, Reason} -> {error, Reason}
+end.
+
+% http://www.clamav.net/doc/latest/html/node28.html
 
 message(Action) ->
     "z" ++ Action ++ [0].

@@ -79,6 +79,9 @@ handle_call({chunk_stream, Chunk}, _From, #state{socket=Socket}=State) ->
 handle_call({end_stream}, _From, #state{socket=Socket}=State) ->
     R = clamd_protocol:end_stream(Socket),
     {reply, R, State};
+handle_call({scan, Path}, _From, State) ->
+    {ok, #state{socket=Socket} = New_State} = connect(State),
+    {reply, clamd_protocol:scan(Socket, Path), New_State};
 handle_call(Msg, _From, State) ->
     io:format("call : ~p~n", [Msg]),
     {reply, ok, State}.
