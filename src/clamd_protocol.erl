@@ -25,7 +25,7 @@ scan(Socket, Path) ->
     case ask(Socket, "SCAN " ++ Path) of
         {ok, Blob} ->
             T = string:tokens(Blob, " "),
-            case lists:nth(length(T), T) of
+            case lists:last(T) of
                 "OK" -> {ok, no_virus};
                 "FOUND" -> {ok, virus, lists:nth(length(T) -1, T), lists:nth(1, T)};
                 _ -> {error, Blob}
