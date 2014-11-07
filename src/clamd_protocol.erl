@@ -7,7 +7,7 @@ start_stream(Socket) ->
     gen_tcp:send(Socket, message("INSTREAM")).
 
 chunk_stream(Socket, Chunk) ->
-    Size = length(Chunk),
+    Size = iolist_size(Chunk),
     gen_tcp:send(Socket, <<Size:32/big>>),
     gen_tcp:send(Socket, Chunk),
     ok.
@@ -15,7 +15,7 @@ chunk_stream(Socket, Chunk) ->
 end_stream(Socket) ->
     gen_tcp:send(Socket,[0,0,0,0]),
     R = case response(Socket) of
-        {ok, "OK"} -> {ok, no_virus};
+        {ok,"stream: OK"} -> {ok, no_virus};
         {ok,"stream: " ++ Name} -> {ok, virus, lists:sublist(Name, length(Name) - 6)};
         {error, Reason} -> {error, Reason}
     end,
