@@ -5,7 +5,8 @@
 
 
 %% gen_server callbacks
--export([start_link/0, init/1, handle_call/3, handle_cast/2,
+%start_link/0,
+-export([ init/1, handle_call/3, handle_cast/2,
 handle_info/2, terminate/2, code_change/3]).
 
 %% poolboy callback
@@ -13,16 +14,16 @@ handle_info/2, terminate/2, code_change/3]).
 
 %% public API
 -export([
-    ping/0,
-    stats/0,
-    version/0,
-    scan/1,
-    stream/1,
+    ping/1,
+    stats/1,
+    version/1,
+    scan/2,
+    stream/2,
     file_wrapper/1,
     start_stream/1,
     chunk_stream/2,
     end_stream/1,
-    transaction/1
+    transaction/2
     ]).
 
 -record(state, {socket, host, port}).
@@ -30,8 +31,8 @@ handle_info/2, terminate/2, code_change/3]).
 %%====================================================================
 %% api callbacks
 %%====================================================================
-start_link() ->
-    gen_server:start_link({local, ?MODULE}, ?MODULE, ["localhost", 3310], []).
+%start_link() ->
+    %gen_server:start_link({local, ?MODULE}, ?MODULE, ["localhost", 3310], []).
 
 start_link(Args) ->
     gen_server:start_link(?MODULE, Args, []).
@@ -86,8 +87,7 @@ handle_call({end_stream}, _From, #state{socket=Socket}=State) ->
 handle_call({scan, Path}, _From, State) ->
     {ok, #state{socket=Socket} = New_State} = connect(State),
     {reply, clamd_protocol:scan(Socket, Path), New_State};
-handle_call(Msg, _From, State) ->
-    io:format("call : ~p~n", [Msg]),
+handle_call(_Msg, _From, State) ->
     {reply, ok, State}.
 
 %%--------------------------------------------------------------------
@@ -130,23 +130,23 @@ code_change(_OldVsn, State, _Extra) ->
 %%--------------------------------------------------------------------
 
 
-ping() ->
-    poolboy:transaction(clamd_pool, fun(Worker) ->
+ping(PoolName) ->
+    poolboy:transaction(PoolName, fun(Worker) ->
                 gen_server:call(Worker, {ping})
         end).
 
-stats() ->
-    poolboy:transaction(clamd_pool, fun(Worker) ->
+stats(PoolName) ->
+    poolboy:transaction(PoolName, fun(Worker) ->
                 gen_server:call(Worker, {stats})
         end).
 
-version() ->
-    poolboy:transaction(clamd_pool, fun(Worker) ->
+version(PoolName) ->
+    poolboy:transaction(PoolName, fun(Worker) ->
                 gen_server:call(Worker, {version})
         end).
 
-scan(Path) ->
-    poolboy:transaction(clamd_pool, fun(Worker) ->
+scan(PoolName, Path) ->
+    poolboy:transaction(PoolName, fun(Worker) ->
                 gen_server:call(Worker, {scan, Path})
         end).
 
@@ -159,21 +159,21 @@ end_stream(Worker) ->
 chunk_stream(Worker, Chunk) ->
     gen_server:call(Worker, {chunk_stream, Chunk}).
 
-transaction(Fun) ->
-    Worker = poolboy:checkout(clamd_pool),
+transaction(PoolName, Fun) ->
+    Worker = poolboy:checkout(PoolName),
     Fun(Worker),
-    poolboy:checkin(clamd_pool, Worker).
+    poolboy:checkin(PoolName, Worker).
 
-stream(Chunks) when is_list(Chunks) ->
-    poolboy:transaction(clamd_pool, fun(Worker) ->
+stream(PoolName, Chunks) when is_list(Chunks) ->
+    poolboy:transaction(PoolName, fun(Worker) ->
                 ok = gen_server:call(Worker, {start_stream}),
                 lists:foreach(fun(T) ->
                             ok = gen_server:call(Worker, {chunk_stream, T})
                     end, Chunks),
                 gen_server:call(Worker, {end_stream})
         end);
-stream({Reader, State}) ->
-    poolboy:transaction(clamd_pool, fun(Worker) ->
+stream(PoolName, {Reader, State}) ->
+    poolboy:transaction(PoolName, fun(Worker) ->
                 ok = gen_server:call(Worker, {start_stream}),
                 read_chunk(Worker, Reader, State),
                 gen_server:call(Worker, {end_stream})
@@ -208,7 +208,8 @@ file_wrapper(Path) ->
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
-
+connect({state,nil,{hostname,Host},{port,Port}}) ->
+    connect({state,nil,Host,Port});
 connect(#state{host=Host, port=Port} = State) ->
     case gen_tcp:connect(Host, Port, [list, {packet, raw}, {active, false}]) of
         {ok, Socket} ->

@@ -6,7 +6,7 @@
 
 ping_test() ->
     application:start(clamd),
-    {ok, _} = clamd:ping().
+    {ok, _} = clamd:ping(pool2).
 
 stream_test() ->
     {ok, virus, _} = clamd:stream([
@@ -20,6 +20,16 @@ pool_test() ->
         clamd:chunk_stream(Worker, "$EICAR-STANDARD-ANTIVIRUS-TEST-FILE!$H+H*"),
         {ok, virus, "Eicar-Test-Signature"} = clamd:end_stream(Worker)
     end).
+
+pool_test(1) ->
+    io:fwrite("starting~n"),
+    Worker = poolboy:checkout(clamd_pool),
+    clamd:start_stream(Worker),
+    clamd:chunk_stream(Worker, "X5O!P%@AP[4\\PZX54(P^)7CC)7}"),
+    clamd:chunk_stream(Worker, "$EICAR-STANDARD-ANTIVIRUS-TEST-FILE!$H+H*"),
+    {ok, virus, "Eicar-Test-Signature"} = clamd:end_stream(Worker),
+    io:fwrite("ending~n~n"),
+    poolboy:checkin(clamd_pool, Worker).
 
 file_test() ->
     {ok, virus, _} = clamd:stream(clamd:file_wrapper("../test/test.virus")).
