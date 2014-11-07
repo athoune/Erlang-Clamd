@@ -11,7 +11,6 @@
 
 start(StartType, StartArgs) ->
 	application:start(yamerl),
-	io:fwrite("_StartType   ~p~n  StartArgs   ~p~n   ",[StartType, StartArgs]),
     clamd_sup:start_link().
 
 stop(_State) ->

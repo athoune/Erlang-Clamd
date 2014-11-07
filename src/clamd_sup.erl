@@ -26,18 +26,18 @@ start_link() ->
 %% ===================================================================
 
 init([]) ->
-    Path = case application:get_env(clamd, path) of 
+    Value = case application:get_env(clamd, path) of 
         undefined ->
-            "etc";
-        {ok, Value} ->
-            Value
+            case yamerl_constr:file("etc/clamd.yaml") of
+                [Conf] ->
+                    Conf;
+                X ->
+                    throw(io_lib:fwrite("Error parsing clamd.yaml ~p",[X]))
+            end;
+        {ok, [Conf]} ->
+            Conf
     end, 
-	Pools = case yamerl_constr:file(Path++"clamd.yaml") of
-		[Conf] ->
-			element(2,lists:nth(1,Conf));
-		X ->
-			throw(io_lib:fwrite("Error parsing ecloud.yaml ~p",[X]))
-	end,
+    Pools = element(2,lists:nth(1,Value)),
     PoolSpecs = lists:map(fun([{"name",Name}, {"pool_size",SizeArgs}, {"hostname",Hostname} = Host, {"port",Port} = Port1]) ->
     	[{"size",SizeNum},{"max_overflow",MaxOverflowNum}] = hd(SizeArgs),
     	PoolArgs = [{name, {local, list_to_atom(Name)}},
