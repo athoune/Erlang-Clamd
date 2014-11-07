@@ -26,7 +26,7 @@ start_link() ->
 %% ===================================================================
 
 init([]) ->
-    Value = case application:get_env(clamd, path) of 
+    Value = case application:get_env(clamd, vals) of 
         undefined ->
             case yamerl_constr:file("etc/clamd.yaml") of
                 [Conf] ->
