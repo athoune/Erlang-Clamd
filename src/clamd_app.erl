@@ -9,7 +9,7 @@
 %% Application callbacks
 %% ===================================================================
 
-start(StartType, StartArgs) ->
+start(_StartType, _StartArgs) ->
 	application:start(yamerl),
     clamd_sup:start_link().
 
