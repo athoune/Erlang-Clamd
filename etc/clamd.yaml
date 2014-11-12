@@ -1,3 +1,4 @@
+enabled: true
 worker_size: 4
 max_overflow: 32
 host: localhost
