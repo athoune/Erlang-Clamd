@@ -5,7 +5,8 @@
 
 
 %% gen_server callbacks
--export([start_link/0, init/1, handle_call/3, handle_cast/2,
+-export([%start_link/0, 
+    init/1, handle_call/3, handle_cast/2,
 handle_info/2, terminate/2, code_change/3]).
 
 %% poolboy callback
@@ -31,8 +32,8 @@ handle_info/2, terminate/2, code_change/3]).
 %%====================================================================
 %% api callbacks
 %%====================================================================
-start_link() ->
-    gen_server:start_link({local, ?MODULE}, ?MODULE, ["localhost", 3310], []).
+%start_link() ->
+    %gen_server:start_link({local, ?MODULE}, ?MODULE, ["localhost", 3310], []).
 
 start_link(Args) ->
     gen_server:start_link(?MODULE, Args, []).

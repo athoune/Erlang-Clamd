@@ -3,3 +3,6 @@ worker_size: 4
 max_overflow: 32
 host: localhost
 port: 3310
+## Units can be: megabytes (M), gigabytes (G), terrabytes (T)
+## Should be same as was set in clamd.conf
+max_file_size: 250M
