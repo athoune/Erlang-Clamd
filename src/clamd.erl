@@ -5,7 +5,8 @@
 
 
 %% gen_server callbacks
--export([start_link/0, init/1, handle_call/3, handle_cast/2,
+-export([%start_link/0, 
+    init/1, handle_call/3, handle_cast/2,
 handle_info/2, terminate/2, code_change/3]).
 
 %% poolboy callback
@@ -19,6 +20,7 @@ handle_info/2, terminate/2, code_change/3]).
     scan/1,
     stream/1,
     file_wrapper/1,
+    file_wrapper/2,
     start_stream/1,
     chunk_stream/2,
     end_stream/1,
@@ -30,8 +32,8 @@ handle_info/2, terminate/2, code_change/3]).
 %%====================================================================
 %% api callbacks
 %%====================================================================
-start_link() ->
-    gen_server:start_link({local, ?MODULE}, ?MODULE, ["localhost", 3310], []).
+%start_link() ->
+    %gen_server:start_link({local, ?MODULE}, ?MODULE, ["localhost", 3310], []).
 
 start_link(Args) ->
     gen_server:start_link(?MODULE, Args, []).
@@ -200,6 +202,26 @@ file_wrapper(Path) ->
                         eof -> eof;
                         {ok, Chunk} ->
                             {ok, Chunk, {reading, Fd}}
+                    end
+            end
+    end,
+    {F, {open, Path}}.
+
+file_wrapper(Path, DecryptState0) ->
+    F = fun(State) ->
+            case State of
+                {open, Path} ->
+                    {ok, Fd} = file:open(Path, [read]),
+                    {ok, Chunk0} = file:read(Fd, 128),
+                    {NewDecryptState,DecryptedChunk} = cld_filewrite:decrypt(DecryptState0, Chunk0),
+                    {ok, DecryptedChunk, {reading, Fd, NewDecryptState}};
+                {reading, Fd, DecryptState} ->
+                    R = file:read(Fd, 128),
+                    case R of
+                        eof -> eof;
+                        {ok, Chunk} ->
+                            {NewDecryptState,DecryptedChunk} = cld_filewrite:decrypt(DecryptState, Chunk),
+                            {ok, DecryptedChunk, {reading, Fd, NewDecryptState}}
                     end
             end
     end,
